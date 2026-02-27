@@ -1,12 +1,20 @@
 const SHEET_ID = '1wsnAood14inAqIhkhzBW-zaYO6tEl5A_NrCkVTY7F9g';
 const SHEET_NAME = 'Users';
 
+/**
+ * Serves the main HTML page.
+ */
 function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('SimFy Group Employee Portal')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * Authenticates a user against the Users sheet.
+ * @param {Object} data - { username, password, role }
+ * @returns {Object} - { success, username, role, message }
+ */
 function loginUser(data) {
   if (!data || !data.username || !data.password || !data.role) {
     throw new Error('Missing required fields');
@@ -47,33 +55,58 @@ function loginUser(data) {
   }
 }
 
-// New functions for admin data fetching (assuming additional sheets exist)
-// These return JSON data for the frontend to populate tables
+// ===== HELPER: Generic sheet data fetcher =====
+
+/**
+ * Returns all rows from a given sheet as an array of arrays.
+ * The first row is treated as headers.
+ * @param {string} sheetName - Name of the sheet tab.
+ * @returns {Array<Array>} - 2D array of cell values (empty array if sheet doesn't exist).
+ */
+function getSheetData_(sheetName) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return [];
+    return sheet.getDataRange().getValues();
+  } catch (err) {
+    Logger.log('Error reading sheet "' + sheetName + '": ' + err.message);
+    return [];
+  }
+}
+
+// ===== PUBLIC DATA ENDPOINTS =====
 
 function getEmployeeDetails() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName('Employees'); // Assume this sheet exists with headers in row 1
-  if (!sheet) return [];
-  return sheet.getDataRange().getValues();
+  return getSheetData_('Employees');
 }
 
 function getPlotsDetails() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName('Plots'); // Assume exists
-  if (!sheet) return [];
-  return sheet.getDataRange().getValues();
+  return getSheetData_('Plots');
 }
 
 function getPMSHistory() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName('PMS'); // Assume exists
-  if (!sheet) return [];
-  return sheet.getDataRange().getValues();
+  return getSheetData_('PMS');
 }
 
 function getSites() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName('Sites'); // Assume exists
-  if (!sheet) return [];
-  return sheet.getDataRange().getValues();
+  return getSheetData_('Sites');
+}
+
+/**
+ * Returns summary counts for the admin dashboard stat cards.
+ * @returns {Object} - { employees, plots, pms, sites }
+ */
+function getDashboardStats() {
+  function countRows(sheetName) {
+    const data = getSheetData_(sheetName);
+    return data.length > 0 ? data.length - 1 : 0; // exclude header row
+  }
+
+  return {
+    employees: countRows('Employees'),
+    plots: countRows('Plots'),
+    pms: countRows('PMS'),
+    sites: countRows('Sites')
+  };
 }
